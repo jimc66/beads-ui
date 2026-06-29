@@ -61,7 +61,11 @@ export function mapSubscriptionToBdArgs(spec) {
       if (id.length === 0) {
         throw badRequest('Missing param: params.id');
       }
-      return ['show', id, '--json'];
+      // --include-dependents streams the full dependent issues into the JSON
+      // so the detail view can render them. bd documents this as potentially
+      // slow on hub beads (issues with very many dependents); accepted as the
+      // detail view loads one issue at a time, not a list.
+      return ['show', id, '--json', '--include-dependents'];
     }
     default: {
       throw badRequest(`Unknown subscription type: ${t}`);
