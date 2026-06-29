@@ -66,11 +66,26 @@ watchRegistry(
   { debounce_ms: 500 }
 );
 
-server.listen(config.port, config.host, () => {
-  printServerUrl();
-});
-
+// Register the error handler before listen() so a listen failure (e.g. the
+// port already being in use) is caught rather than thrown as an unhandled
+// 'error' event.
 server.on('error', (err) => {
   log('server error %o', err);
-  process.exitCode = 1;
+  // Surface a port conflict clearly. Without this it is only logged via the
+  // debug logger (silent unless DEBUG is set), so `bdui start` appears to do
+  // nothing when the port is already in use.
+  if (/** @type {NodeJS.ErrnoException} */ (err).code === 'EADDRINUSE') {
+    process.stderr.write(
+      `bdui: port ${config.port} is already in use on ${config.host}. ` +
+        `Stop the process using it, or start bdui on another port with ` +
+        `--port <number>.\n`
+    );
+  } else {
+    process.stderr.write(`bdui: server error: ${err.message}\n`);
+  }
+  process.exit(1);
+});
+
+server.listen(config.port, config.host, () => {
+  printServerUrl();
 });

@@ -447,6 +447,15 @@ export function attachWsServer(http_server, options = {}) {
   const wss = new WebSocketServer({ server: http_server, path: ws_path });
   CURRENT_WSS = wss;
 
+  // The ws library re-emits the underlying HTTP server's errors (e.g. a
+  // listen EADDRINUSE) on the WebSocketServer. Without a listener here that
+  // becomes an unhandled 'error' event and crashes the process before the
+  // HTTP server's own error handler can report it cleanly. Log and let the
+  // HTTP server's handler own the user-facing message and exit.
+  wss.on('error', (err) => {
+    log('websocket server error %o', err);
+  });
+
   // Heartbeat: track if client answered the last ping
   wss.on('connection', (ws) => {
     log('client connected');
