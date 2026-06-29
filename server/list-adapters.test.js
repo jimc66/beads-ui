@@ -18,6 +18,7 @@ describe('list adapters for subscription types', () => {
       'list',
       '--json',
       '--tree=false',
+      '--all',
       '--limit',
       '1000'
     ]);

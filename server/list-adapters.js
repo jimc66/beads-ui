@@ -22,7 +22,18 @@ export function mapSubscriptionToBdArgs(spec) {
   const t = String(spec.type);
   switch (t) {
     case 'all-issues': {
-      return ['list', '--json', '--tree=false', '--limit', String(LIST_LIMIT)];
+      // `bd list` without a status filter returns only open issues, so the
+      // "Any" status view (which subscribes to all-issues and filters client
+      // side) could never show closed issues. `--all` includes closed issues
+      // so the client has the full set to filter.
+      return [
+        'list',
+        '--json',
+        '--tree=false',
+        '--all',
+        '--limit',
+        String(LIST_LIMIT)
+      ];
     }
     case 'epics': {
       return ['epic', 'status', '--json'];
