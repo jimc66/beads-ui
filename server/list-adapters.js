@@ -3,6 +3,14 @@ import { debug } from './logging.js';
 
 const log = debug('list-adapters');
 
+// Upper bound on rows requested from `bd list`/`bd ready` for list views.
+// bd applies a small default limit (~50) when none is given, which silently
+// truncates these views on any non-trivial database. We request a high
+// explicit cap so the UI shows the full working set; bd returns fewer rows
+// when the result is smaller. Defined once so every list view shares the same
+// ceiling and it can be tuned in a single place.
+const LIST_LIMIT = 1000;
+
 /**
  * Build concrete `bd` CLI args for a subscription type + params.
  * Always includes `--json` for parseable output.
@@ -14,7 +22,7 @@ export function mapSubscriptionToBdArgs(spec) {
   const t = String(spec.type);
   switch (t) {
     case 'all-issues': {
-      return ['list', '--json', '--tree=false'];
+      return ['list', '--json', '--tree=false', '--limit', String(LIST_LIMIT)];
     }
     case 'epics': {
       return ['epic', 'status', '--json'];
@@ -23,10 +31,18 @@ export function mapSubscriptionToBdArgs(spec) {
       return ['blocked', '--json'];
     }
     case 'ready-issues': {
-      return ['ready', '--limit', '1000', '--json'];
+      return ['ready', '--limit', String(LIST_LIMIT), '--json'];
     }
     case 'in-progress-issues': {
-      return ['list', '--json', '--tree=false', '--status', 'in_progress'];
+      return [
+        'list',
+        '--json',
+        '--tree=false',
+        '--status',
+        'in_progress',
+        '--limit',
+        String(LIST_LIMIT)
+      ];
     }
     case 'closed-issues': {
       return [
@@ -36,7 +52,7 @@ export function mapSubscriptionToBdArgs(spec) {
         '--status',
         'closed',
         '--limit',
-        '1000'
+        String(LIST_LIMIT)
       ];
     }
     case 'issue-detail': {
@@ -45,7 +61,11 @@ export function mapSubscriptionToBdArgs(spec) {
       if (id.length === 0) {
         throw badRequest('Missing param: params.id');
       }
-      return ['show', id, '--json'];
+      // --include-dependents streams the full dependent issues into the JSON
+      // so the detail view can render them. bd documents this as potentially
+      // slow on hub beads (issues with very many dependents); accepted as the
+      // detail view loads one issue at a time, not a list.
+      return ['show', id, '--json', '--include-dependents'];
     }
     default: {
       throw badRequest(`Unknown subscription type: ${t}`);

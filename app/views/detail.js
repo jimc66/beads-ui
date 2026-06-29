@@ -114,6 +114,15 @@ export function createDetailView(
   let comment_text = '';
   /** @type {boolean} */
   let comment_pending = false;
+  // Comments are view state owned by this view, not part of the issue snapshot.
+  // They are fetched once per issue via `get-comments`, independently of the
+  // snapshot that populates `current`. Keeping them separate means rendering
+  // does not depend on the relative timing of the snapshot and the fetch.
+  // `comments` is null until the fetch for `comments_for_id` resolves.
+  /** @type {Comment[] | null} */
+  let comments = null;
+  /** @type {string | null} */
+  let comments_for_id = null;
 
   /** @type {HTMLDialogElement | null} */
   let delete_dialog = null;
@@ -837,8 +846,10 @@ export function createDetailView(
         text: comment_text.trim()
       });
       if (Array.isArray(result)) {
-        // Update comments in current issue
-        /** @type {any} */ (current).comments = result;
+        // The handler returns the updated comments list; adopt it as the
+        // view's comment state for the current issue.
+        comments = /** @type {Comment[]} */ (result);
+        comments_for_id = String(current.id);
         comment_text = '';
         doRender();
       }
@@ -1167,15 +1178,21 @@ export function createDetailView(
           })()}
         </div>`;
 
-    // Comments section
-    const comments = Array.isArray(/** @type {any} */ (issue).comments)
-      ? /** @type {Comment[]} */ (/** @type {any} */ (issue).comments)
-      : [];
+    // Comments section. Read from the view's own comment state (fetched per
+    // issue), not from the issue snapshot. `comments` is null until the fetch
+    // for the current issue resolves, which lets us distinguish "still loading"
+    // from "loaded, none present".
+    const loaded_comments =
+      comments_for_id === String(issue.id) && Array.isArray(comments)
+        ? comments
+        : null;
     const comments_block = html`<div class="comments">
       <div class="props-card__title">Comments</div>
-      ${comments.length === 0
-        ? html`<div class="muted">No comments yet</div>`
-        : comments.map(
+      ${loaded_comments === null
+        ? html`<div class="muted">Loading comments…</div>`
+        : loaded_comments.length === 0
+          ? html`<div class="muted">No comments yet</div>`
+          : loaded_comments.map(
             (c) => html`
               <div class="comment-item">
                 <div class="comment-header">
@@ -1490,6 +1507,10 @@ export function createDetailView(
         return;
       }
       current_id = String(id);
+      // Reset comment state for the new issue so a previous issue's comments
+      // are never shown while this one's fetch is in flight.
+      comments = null;
+      comments_for_id = null;
       // Try from store first; show placeholder while waiting for snapshot
       current = null;
       refreshFromStore();
@@ -1502,17 +1523,21 @@ export function createDetailView(
       comment_pending = false;
       doRender();
 
-      // Fetch comments if not already present
-      if (current && !(/** @type {any} */ (current).comments)) {
-        try {
-          const comments = await sendFn('get-comments', { id: current_id });
-          if (Array.isArray(comments) && current && current_id === id) {
-            /** @type {any} */ (current).comments = comments;
-            doRender();
-          }
-        } catch (err) {
-          log('fetch comments failed %s %o', id, err);
+      // Fetch comments for this issue. Comments are independent view state, so
+      // this does not depend on `current` being populated yet — the snapshot
+      // that sets `current` may arrive before or after this reply (deep link,
+      // cold store, or a large payload). That decoupling is what previously
+      // left comments unshown.
+      try {
+        const fetched = await sendFn('get-comments', { id: current_id });
+        // Ignore a reply for an issue we've since navigated away from.
+        if (Array.isArray(fetched) && current_id === id) {
+          comments = /** @type {Comment[]} */ (fetched);
+          comments_for_id = String(id);
+          doRender();
         }
+      } catch (err) {
+        log('fetch comments failed %s %o', id, err);
       }
     },
     clear() {

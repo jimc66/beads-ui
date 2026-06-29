@@ -211,22 +211,26 @@ describe('views/detail', () => {
       id: 'UI-99',
       title: 'Test issue',
       dependencies: [],
-      dependents: [],
-      comments: [
-        {
-          id: 1,
-          author: 'Alice',
-          text: 'This is a comment',
-          created_at: '2025-01-15T10:30:00Z'
-        },
-        {
-          id: 2,
-          author: 'Bob',
-          text: 'Another comment',
-          created_at: '2025-01-15T11:00:00Z'
-        }
-      ]
+      dependents: []
     };
+
+    // Comments are delivered by the get-comments fetch, not the snapshot.
+    const fetchedComments = [
+      {
+        id: 1,
+        author: 'Alice',
+        text: 'This is a comment',
+        created_at: '2025-01-15T10:30:00Z'
+      },
+      {
+        id: 2,
+        author: 'Bob',
+        text: 'Another comment',
+        created_at: '2025-01-15T11:00:00Z'
+      }
+    ];
+    const sendFn = async (/** @type {string} */ type) =>
+      type === 'get-comments' ? fetchedComments : {};
 
     const stores = {
       snapshotFor(/** @type {string} */ id) {
@@ -237,7 +241,7 @@ describe('views/detail', () => {
       }
     };
 
-    const view = createDetailView(mount, async () => ({}), undefined, stores);
+    const view = createDetailView(mount, sendFn, undefined, stores);
     await view.load('UI-99');
 
     // Check comments section exists
@@ -263,9 +267,12 @@ describe('views/detail', () => {
       id: 'UI-100',
       title: 'Test issue',
       dependencies: [],
-      dependents: [],
-      comments: []
+      dependents: []
     };
+
+    // get-comments resolves to an empty list for this issue.
+    const sendFn = async (/** @type {string} */ type) =>
+      type === 'get-comments' ? [] : {};
 
     const stores = {
       snapshotFor(/** @type {string} */ id) {
@@ -276,7 +283,7 @@ describe('views/detail', () => {
       }
     };
 
-    const view = createDetailView(mount, async () => ({}), undefined, stores);
+    const view = createDetailView(mount, sendFn, undefined, stores);
     await view.load('UI-100');
 
     const commentsSection = mount.querySelector('.comments');
@@ -295,8 +302,7 @@ describe('views/detail', () => {
       id: 'UI-101',
       title: 'Test issue',
       dependencies: [],
-      dependents: [],
-      comments: []
+      dependents: []
     };
 
     /** @type {Array<{type: string, payload: unknown}>} */
@@ -306,7 +312,11 @@ describe('views/detail', () => {
       /** @type {unknown} */ payload
     ) => {
       calls.push({ type, payload });
-      // Return updated comments
+      if (type === 'get-comments') {
+        // No existing comments before the user adds one.
+        return [];
+      }
+      // add-comment returns the updated comments list.
       return [
         {
           id: 1,
@@ -350,10 +360,11 @@ describe('views/detail', () => {
     // Wait for async
     await new Promise((r) => setTimeout(r, 10));
 
-    // Verify sendFn was called correctly
-    expect(calls.length).toBe(1);
-    expect(calls[0].type).toBe('add-comment');
-    expect(calls[0].payload).toEqual({ id: 'UI-101', text: 'Test comment' });
+    // Verify the add-comment call was made correctly. (A get-comments call
+    // also fires on load; assert on the add-comment one specifically.)
+    const addCall = calls.find((c) => c.type === 'add-comment');
+    expect(addCall).toBeTruthy();
+    expect(addCall?.payload).toEqual({ id: 'UI-101', text: 'Test comment' });
   });
 
   test('fetches comments on load when not in snapshot', async () => {
@@ -414,6 +425,86 @@ describe('views/detail', () => {
     const commentItems = mount.querySelectorAll('.comment-item');
     expect(commentItems.length).toBe(1);
     expect(commentItems[0].textContent).toContain('Fetched');
+  });
+
+  test('fetches and shows comments when snapshot is empty at load time', async () => {
+    // Regression: on a deep link / cold store / large payload, the snapshot
+    // that populates `current` arrives AFTER load() runs, so `current` is null
+    // when the comment fetch is decided. The fetch must still fire and the
+    // comments must attach once the snapshot lands.
+    document.body.innerHTML =
+      '<section class="panel"><div id="mount"></div></section>';
+    const mount = /** @type {HTMLElement} */ (document.getElementById('mount'));
+
+    const issue = {
+      id: 'UI-103',
+      title: 'Deep-linked issue',
+      dependencies: [],
+      dependents: []
+    };
+
+    // Snapshot is empty until the subscribe listener fires (simulating a
+    // snapshot that arrives after load()).
+    let snapshot_ready = false;
+    /** @type {(() => void) | null} */
+    let notify = null;
+
+    /** @type {Array<{type: string, payload: unknown}>} */
+    const calls = [];
+    const sendFn = async (
+      /** @type {string} */ type,
+      /** @type {unknown} */ payload
+    ) => {
+      calls.push({ type, payload });
+      if (type === 'get-comments') {
+        return [
+          {
+            id: 1,
+            author: 'Fetched',
+            text: 'Comment that should appear',
+            created_at: '2025-01-15T12:00:00Z'
+          }
+        ];
+      }
+      return {};
+    };
+
+    const stores = {
+      snapshotFor(/** @type {string} */ id) {
+        if (id === 'detail:UI-103' && snapshot_ready) {
+          return [issue];
+        }
+        return [];
+      },
+      /** @param {() => void} fn */
+      subscribe(fn) {
+        notify = fn;
+        return () => {};
+      }
+    };
+
+    const view = createDetailView(mount, sendFn, undefined, stores);
+    await view.load('UI-103');
+
+    // get-comments must fire even though `current` was null at load time.
+    const getCommentsCall = calls.find((c) => c.type === 'get-comments');
+    expect(getCommentsCall).toBeTruthy();
+    expect(getCommentsCall?.payload).toEqual({ id: 'UI-103' });
+
+    // Let the fetch promise resolve (it may resolve before the snapshot).
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Now the snapshot arrives and the store notifies the view.
+    snapshot_ready = true;
+    const notifyFn = /** @type {(() => void) | null} */ (notify);
+    if (notifyFn) {
+      notifyFn();
+    }
+
+    // The stashed comment attaches to `current` and renders.
+    const commentItems = mount.querySelectorAll('.comment-item');
+    expect(commentItems.length).toBe(1);
+    expect(commentItems[0].textContent).toContain('Comment that should appear');
   });
 
   test('renders close reason when present on closed issue', async () => {
