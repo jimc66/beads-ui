@@ -1,13 +1,14 @@
 > **Fork notice.** This is a fork of
 > [mantoni/beads-ui](https://github.com/mantoni/beads-ui) with fixes ahead of the
 > current upstream release: the comment-fetch race, `bd comments add` (so
-> `--author` is accepted), list-view limits, including dependents in the detail
-> view, and a jsdom test fix. Tested with bd 1.0.5.
+> `--author` is accepted), list-view limits, "Status: Any" including closed
+> issues, including dependents in the detail view, a clear error when the port
+> is already in use, and a jsdom test fix. Tested with bd 1.0.5.
 >
 > **Install (no clone required):**
 >
 > ```bash
-> npm install -g https://github.com/jimc66/beads-ui/releases/download/v0.12.0-fork.1/beads-ui-0.12.0.tgz
+> npm install -g https://github.com/jimc66/beads-ui/releases/download/v0.12.0-fork.2/beads-ui-0.12.0.tgz
 > ```
 >
 > See [Releases](https://github.com/jimc66/beads-ui/releases) for the latest
