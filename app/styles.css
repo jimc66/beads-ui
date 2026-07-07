@@ -528,6 +528,15 @@ button.id-copy {
 button.id-copy:hover {
   text-decoration: underline;
 }
+/* Issues/Epics tables: truncate long IDs (deep dotted child ids) instead
+   of letting them bleed under the Type badge in the next cell. */
+.table td.mono button.id-copy {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
 button:hover {
   filter: brightness(1.02);
 }
