@@ -9,7 +9,7 @@
 > **Install (no clone required):**
 >
 > ```bash
-> npm install -g https://github.com/jimc66/beads-ui/releases/download/v0.12.0-fork.3/beads-ui-0.12.0.tgz
+> npm install -g https://github.com/jimc66/beads-ui/releases/download/v0.12.1-fork.1/beads-ui-0.12.1.tgz
 > ```
 >
 > See [Releases](https://github.com/jimc66/beads-ui/releases) for the latest
