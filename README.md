@@ -1,6 +1,6 @@
 > **Fork notice.** This is a fork of
 > [mantoni/beads-ui](https://github.com/mantoni/beads-ui) with fixes ahead of the
-> current upstream release: the comment-fetch race, `bd comments add` (so
+> current upstream release: `bd comments add` (so
 > `--author` is accepted), list-view limits, "Status: Any" including closed
 > issues, including dependents in the detail view, a clear error when the port
 > is already in use, a wider ID column so dotted child ids aren't clipped in
