@@ -98,6 +98,11 @@ async function measureIds(page) {
       // from text painting outside the cell. Pair it with the element's
       // effective clipping: text only truly escapes when it extends past the
       // cell AND nothing is clipping it.
+      //
+      // Scoped to this button, which holds plain text and is clipped by its
+      // own `overflow`. It is not a general paint oracle: `clip-path`, a
+      // transform, or an ancestor doing the clipping would make the flag
+      // conservative, reporting no escape where one is visible.
       const range = document.createRange();
       range.selectNodeContents(el);
       const text_box = range.getBoundingClientRect();
