@@ -12,7 +12,8 @@ export default defineConfig([
       'dist',
       '.beads',
       'app/main.bundle.js',
-      'app/main.bundle.js.map'
+      'app/main.bundle.js.map',
+      'test/e2e/fixture/harness.bundle.js'
     ]
   },
   js.configs.recommended,
@@ -65,6 +66,14 @@ export default defineConfig([
     files: ['app/**/*.js'],
     languageOptions: {
       globals: globals.browser
+    }
+  },
+  {
+    // Playwright specs run in Node but also evaluate callbacks in the page,
+    // so they reference both environments.
+    files: ['test/e2e/**/*.js', 'playwright.config.js'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser }
     }
   }
 ]);

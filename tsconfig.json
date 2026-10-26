@@ -20,7 +20,12 @@
     "server/**/*.js",
     "scripts/**/*.js",
     "test/**/*.js",
+    "test/**/*.d.ts",
     "vitest.config.mjs"
   ],
-  "exclude": ["app/main.bundle.js", "app/main.bundle.js.map"]
+  "exclude": [
+    "app/main.bundle.js",
+    "app/main.bundle.js.map",
+    "test/e2e/fixture/harness.bundle.js"
+  ]
 }

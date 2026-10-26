@@ -140,7 +140,7 @@ export function createEpicsView(
                   ? html`<div class="muted">No issues found</div>`
                   : html`<table class="table">
                       <colgroup>
-                        <col style="width: 150px" />
+                        <col style="width: 175px" />
                         <col style="width: 90px" />
                         <col />
                         <col style="width: 120px" />
