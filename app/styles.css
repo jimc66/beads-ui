@@ -1361,6 +1361,16 @@ input.inline-edit:focus {
     color: var(--muted);
     font-weight: 600;
   }
+  /* Title is the only flexible column: every other one is a fixed px width,
+     so Title absorbs whatever the viewport leaves over and is the first cell
+     to run out of room as the window narrows. Halving its horizontal padding
+     returns 12px to the text at every width, which buys back most of what
+     the wider ID column costs it. */
+  th:nth-child(3),
+  td:nth-child(3) {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
 }
 .epic-row:hover {
   background: color-mix(in srgb, var(--control-bg) 55%, transparent);

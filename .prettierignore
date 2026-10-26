@@ -5,4 +5,5 @@ dist
 CHANGES.md
 app/main.bundle.js
 app/main.bundle.js.map
+test/e2e/fixture/harness.bundle.js
 dev-docs

@@ -15,13 +15,25 @@ export default defineConfig({
   testDir: './test/e2e',
   // Layout assertions compare measured pixel widths, so a stable viewport is
   // part of the contract rather than an incidental default.
-  use: {
-    ...devices['Desktop Chrome'],
-    viewport: { width: 1280, height: 900 }
-  },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [{ name: 'chromium' }],
   // A clipped column is a deterministic CSS outcome, so a retry would only
   // mask a real failure.
   retries: 0,
-  reporter: [['list']]
+  reporter: [['list']],
+  // ES modules cannot load over file://, so the fixture is served over HTTP.
+  // `npx serve`-free: Node's own static handler keeps this dependency-light.
+  webServer: {
+    command: 'node test/e2e/fixture/serve.js',
+    url: 'http://127.0.0.1:4173/test/e2e/fixture/index.html',
+    reuseExistingServer: false,
+    stdout: 'ignore'
+  },
+  use: {
+    ...devices['Desktop Chrome'],
+    viewport: { width: 1280, height: 900 },
+    baseURL: 'http://127.0.0.1:4173'
+  },
+  // Rebuild the fixture bundle before each run so the harness can never be
+  // measured against stale copies of the views it is meant to exercise.
+  globalSetup: './test/e2e/fixture/build.js'
 });

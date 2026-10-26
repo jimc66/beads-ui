@@ -12,3 +12,4 @@ app/main.bundle.js.map
 # Playwright browser-test output
 /test-results/
 /playwright-report/
+test/e2e/fixture/harness.bundle.js

@@ -2,37 +2,17 @@
  * Layout coverage for the Issues/Epics ID column.
  *
  * The vitest suite cannot cover this: jsdom reports every width as 0, so an
- * ID that overflows its column is invisible to it. These tests render the
- * real `app/styles.css` against the real table markup in Chromium and compare
- * `scrollWidth` to `clientWidth`, which is how the browser itself reports
- * clipped text.
+ * ID that overflows its column is invisible to it. These tests mount the real
+ * views in Chromium against the app's own stylesheet and measure what the
+ * browser actually lays out.
  *
- * The IDs below are real values taken from a 2,587-issue Beads database,
- * one per distinct length from 9 to 17 characters. Only the IDs were taken;
- * no titles or other issue content.
+ * The IDs below are real values taken from a 2,587-issue Beads database, one
+ * per distinct length from 9 to 17 characters. Only the IDs were taken; no
+ * titles or other issue content.
  */
 import { expect, test } from '@playwright/test';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const this_file = fileURLToPath(new URL(import.meta.url));
-const repo_root = path.resolve(path.dirname(this_file), '../..');
-
-/**
- * Read the ID column's width straight out of the view source, so this test
- * measures what the app actually ships rather than a copy that can drift.
- *
- * @param {string} rel_path - View file, relative to the repo root.
- */
-function idColumnWidth(rel_path) {
-  const src = readFileSync(path.join(repo_root, rel_path), 'utf8');
-  const match = src.match(/<col style="width: (\d+)px" \/>/);
-  if (!match) {
-    throw new Error(`No colgroup width found in ${rel_path}`);
-  }
-  return Number(match[1]);
-}
+const FIXTURE_PATH = '/test/e2e/fixture/index.html';
 
 /** Real IDs spanning every length present in the source database. */
 const SAMPLE_IDS = [
@@ -47,98 +27,140 @@ const SAMPLE_IDS = [
   'atlas-4pa.54.7.10'
 ];
 
-/**
- * Build a page reproducing the list view's table structure: the same
- * `.table` class, the same colgroup widths, and the same
- * `<td class="mono"><button class="mono id-copy">` ID cell.
- *
- * @param {string[]} ids
- * @param {number} id_width - ID column width, read from the view source.
- */
-function tablePage(ids, id_width) {
-  const styles = readFileSync(path.join(repo_root, 'app/styles.css'), 'utf8');
-  const rows = ids
-    .map(
-      (id) => `<tr role="row">
-        <td role="gridcell" class="mono"><button type="button" class="mono id-copy">${id}</button></td>
-        <td role="gridcell"><span class="badge">Bug</span></td>
-        <td role="gridcell">A representative issue title</td>
-        <td role="gridcell">open</td>
-        <td role="gridcell">someone</td>
-        <td role="gridcell">P2</td>
-        <td role="gridcell">0</td>
-      </tr>`
-    )
-    .join('\n');
+/** An id deeper than anything observed, to exercise the ellipsis backstop. */
+const OVERLONG_ID = 'atlas-4pa.54.7.10.22.31';
 
-  return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><style>${styles}</style></head>
-<body>
-  <table class="table" role="grid">
-    <colgroup>
-      <col style="width: ${id_width}px" />
-      <col style="width: 90px" />
-      <col />
-      <col style="width: 120px" />
-      <col style="width: 160px" />
-      <col style="width: 130px" />
-      <col style="width: 80px" />
-    </colgroup>
-    <thead><tr role="row">
-      <th role="columnheader">ID</th><th role="columnheader">Type</th>
-      <th role="columnheader">Title</th><th role="columnheader">Status</th>
-      <th role="columnheader">Assignee</th><th role="columnheader">Priority</th>
-      <th role="columnheader">Deps</th>
-    </tr></thead>
-    <tbody role="rowgroup">${rows}</tbody>
-  </table>
-</body></html>`;
+/**
+ * @param {string[]} ids
+ * @returns {Array<Record<string, unknown>>} Issue records for the stores.
+ */
+function issuesFrom(ids) {
+  return ids.map((id, i) => ({
+    id,
+    title: `Issue ${i + 1}`,
+    status: 'open',
+    issue_type: i % 2 === 0 ? 'bug' : 'task',
+    priority: 2,
+    assignee: 'someone',
+    created_at: 1,
+    updated_at: 1,
+    closed_at: null
+  }));
 }
 
 /**
- * Measure each ID button, reporting whether the browser is clipping its text.
+ * Mount a real view with the given issues.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {'issues' | 'epics'} view
+ * @param {string[]} ids
+ */
+async function mount(page, view, ids) {
+  await page.goto(FIXTURE_PATH);
+  await page.evaluate(
+    ([v, data]) => window.mountView(v, data),
+    /** @type {['issues' | 'epics', Array<Record<string, unknown>>]} */ ([
+      view,
+      issuesFrom(ids)
+    ])
+  );
+  await page.waitForSelector('table.table td button.id-copy');
+}
+
+/**
+ * Measure every ID cell as the browser lays it out.
+ *
+ * `scrollWidth > clientWidth` catches text the element itself clips, but an
+ * unconstrained button can also spill past its cell while those stay equal,
+ * so the geometry is compared against the cell's content box too.
  *
  * @param {import('@playwright/test').Page} page
  */
 async function measureIds(page) {
-  return page.$$eval('button.id-copy', (nodes) =>
-    nodes.map((el) => ({
-      id: el.textContent || '',
-      // scrollWidth exceeds clientWidth exactly when the text does not fit.
-      scroll_width: el.scrollWidth,
-      client_width: el.clientWidth,
-      clipped: el.scrollWidth > el.clientWidth
-    }))
+  return page.$$eval('table.table td button.id-copy', (nodes) =>
+    nodes.map((el) => {
+      const cell = /** @type {HTMLElement} */ (el.closest('td'));
+      const cs = getComputedStyle(cell);
+      const pad_left = parseFloat(cs.paddingLeft);
+      const pad_right = parseFloat(cs.paddingRight);
+      const inner = cell.getBoundingClientRect().width - pad_left - pad_right;
+      const box = el.getBoundingClientRect();
+      return {
+        id: el.textContent || '',
+        text_clipped: el.scrollWidth > el.clientWidth,
+        overflows_cell: box.width > inner + 0.5,
+        bleeds_right:
+          box.right > cell.getBoundingClientRect().right - pad_right + 0.5
+      };
+    })
   );
 }
 
-for (const view of ['app/views/list.js', 'app/views/epics.js']) {
-  test(`renders every real-world issue ID without clipping in ${view}`, async ({
+for (const view of /** @type {const} */ (['issues', 'epics'])) {
+  test(`${view}: renders every real-world ID without clipping`, async ({
     page
   }) => {
-    await page.setContent(tablePage(SAMPLE_IDS, idColumnWidth(view)));
+    await mount(page, view, SAMPLE_IDS);
 
     const measured = await measureIds(page);
-    const clipped = measured.filter((m) => m.clipped);
+    const bad = measured.filter(
+      (m) => m.text_clipped || m.overflows_cell || m.bleeds_right
+    );
 
-    expect(
-      clipped,
-      `clipped IDs: ${clipped.map((c) => `${c.id} (needs ${c.scroll_width}px, has ${c.client_width}px)`).join(', ')}`
-    ).toEqual([]);
+    expect(measured).toHaveLength(SAMPLE_IDS.length);
+    expect(bad, `badly laid out: ${JSON.stringify(bad, null, 2)}`).toEqual([]);
+  });
+
+  test(`${view}: keeps the full ID as the copyable value`, async ({ page }) => {
+    await mount(page, view, SAMPLE_IDS);
+
+    // Read back from the rendered DOM, which the real ID renderer produced,
+    // rather than comparing the input array against itself.
+    const rendered = await page.$$eval(
+      'table.table td button.id-copy',
+      (nodes) => nodes.map((el) => el.textContent)
+    );
+
+    // The prefix disambiguates once several projects are open and the control
+    // copies what it displays, so the text must never be shortened. The views
+    // order rows themselves, so compare membership rather than sequence.
+    expect([...rendered].sort()).toEqual([...SAMPLE_IDS].sort());
   });
 }
 
-test('shows the full ID text, never a truncated prefix', async ({ page }) => {
-  await page.setContent(
-    tablePage(SAMPLE_IDS, idColumnWidth('app/views/list.js'))
-  );
+test('an ID deeper than any observed falls back to an ellipsis', async ({
+  page
+}) => {
+  await mount(page, 'issues', [OVERLONG_ID]);
 
-  const rendered = await page.$$eval('button.id-copy', (nodes) =>
-    nodes.map((el) => el.textContent)
-  );
+  const measured = await measureIds(page);
 
-  // The project prefix carries meaning once several projects are open, and
-  // the ID is a click-to-copy control, so the visible text must match the
-  // value exactly rather than being shortened at either end.
-  expect(rendered).toEqual(SAMPLE_IDS);
+  // The backstop's job is to keep the overflow inside the cell; the text
+  // itself is expected to clip at this depth.
+  expect(measured[0].text_clipped).toBe(true);
+  expect(measured[0].overflows_cell).toBe(false);
+  expect(measured[0].bleeds_right).toBe(false);
+
+  const overflow = await page.$eval(
+    'table.table td button.id-copy',
+    (el) => getComputedStyle(el).textOverflow
+  );
+  expect(overflow).toBe('ellipsis');
+});
+
+test('detects a regression in the rendered row styling', async ({ page }) => {
+  await mount(page, 'issues', SAMPLE_IDS);
+
+  // Guards the measurement itself: if these assertions can be satisfied by
+  // markup that is not what ships, a change to the real rows would not be
+  // noticed. Restoring the pre-fix type size must make the suite's own
+  // metric fail.
+  await page.addStyleTag({
+    content: '.table { font-size: 16px !important; }'
+  });
+  await page.waitForTimeout(50);
+
+  const measured = await measureIds(page);
+
+  expect(measured.some((m) => m.text_clipped)).toBe(true);
 });
