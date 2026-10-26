@@ -6,11 +6,11 @@ without cloning the repo or needing an npm account.
 
 ## Why a release tarball (and not `npm install -g github:owner/repo`)
 
-Installing globally straight from a git ref
-(`npm install -g github:owner/repo`) clones the repo into npm's cache and, on
-some npm/Node versions, leaves a **broken symlink** in the global
-`node_modules` (pointing into `~/.npm/_cacache/tmp/git-clone*`, which npm then
-deletes). The result is a dangling link and an unusable `bdui`.
+Installing globally straight from a git ref (`npm install -g github:owner/repo`)
+clones the repo into npm's cache and, on some npm/Node versions, leaves a
+**broken symlink** in the global `node_modules` (pointing into
+`~/.npm/_cacache/tmp/git-clone*`, which npm then deletes). The result is a
+dangling link and an unusable `bdui`.
 
 A tarball downloaded over HTTPS is neither a git clone nor a local path, so npm
 **extracts it into a real directory** — sidestepping that behavior. That is why

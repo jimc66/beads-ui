@@ -14,13 +14,15 @@ describe('list adapters for subscription types', () => {
 
   test('mapSubscriptionToBdArgs returns args for all-issues', () => {
     const args = mapSubscriptionToBdArgs({ type: 'all-issues' });
+    // `--all` so the Any view sees closed issues too.
+    // `--limit 0` = unlimited; without it bd list truncates at its default 50
     expect(args).toEqual([
       'list',
       '--json',
       '--tree=false',
       '--all',
       '--limit',
-      '1000'
+      '0'
     ]);
   });
 
@@ -42,6 +44,7 @@ describe('list adapters for subscription types', () => {
 
   test('mapSubscriptionToBdArgs returns args for in-progress-issues', () => {
     const args = mapSubscriptionToBdArgs({ type: 'in-progress-issues' });
+    // `--limit 0` = unlimited; without it bd list truncates at its default 50
     expect(args).toEqual([
       'list',
       '--json',
@@ -49,7 +52,7 @@ describe('list adapters for subscription types', () => {
       '--status',
       'in_progress',
       '--limit',
-      '1000'
+      '0'
     ]);
   });
 
@@ -63,6 +66,22 @@ describe('list adapters for subscription types', () => {
       'closed',
       '--limit',
       '1000'
+    ]);
+  });
+
+  test('mapSubscriptionToBdArgs returns args for status-blocked-issues', () => {
+    const args = mapSubscriptionToBdArgs({ type: 'status-blocked-issues' });
+    // `bd blocked` only reports dependency-blocked issues, so issues whose
+    // stored status is `blocked` need their own list query.
+    // `--limit 0` = unlimited; without it bd list truncates at its default 50
+    expect(args).toEqual([
+      'list',
+      '--json',
+      '--tree=false',
+      '--status',
+      'blocked',
+      '--limit',
+      '0'
     ]);
   });
 
@@ -113,6 +132,23 @@ describe('list adapters for subscription types', () => {
         closed_at: null
       });
     }
+  });
+
+  test('forwards bd scheduling priority', async () => {
+    /** @type {import('vitest').Mock} */ (runBdJson).mockResolvedValue({
+      code: 0,
+      stdoutJson: []
+    });
+
+    await fetchListForSubscription(
+      { type: 'all-issues' },
+      { cwd: '/workspace', priority: 'background' }
+    );
+
+    expect(runBdJson).toHaveBeenCalledWith(
+      ['list', '--json', '--tree=false', '--all', '--limit', '0'],
+      { cwd: '/workspace', priority: 'background' }
+    );
   });
 
   test('filters tombstoned epics', async () => {
