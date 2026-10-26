@@ -2,15 +2,17 @@
 > [mantoni/beads-ui](https://github.com/mantoni/beads-ui), synced with upstream
 > v0.12.6. Upstream has since adopted this fork's `bd comments add` (`--author`)
 > fix, the detail view's dependents, and the list-view limits, so only these
-> changes remain ahead of it: "Status: Any" includes closed issues
-> (`bd list --all`), a clear error when the port is already in use instead of a
-> silent exit, a wider ID column so dotted child ids aren't clipped in the
-> Issues/Epics tables, and a jsdom localStorage test fix. Tested with bd 1.0.5.
+> changes remain ahead of it: issue IDs no longer render clipped in the
+> Issues/Epics tables (13px table type, tighter cell padding, a 175px ID
+> column), "Status: Any" includes closed issues (`bd list --all`), a clear error
+> when the port is already in use instead of a silent exit, browser layout tests
+> the jsdom suite cannot express, and a jsdom localStorage test fix. Tested with
+> bd 1.0.5.
 >
 > **Install (no clone required):**
 >
 > ```bash
-> npm install -g https://github.com/jimc66/beads-ui/releases/download/v0.12.1-fork.1/beads-ui-0.12.1.tgz
+> npm install -g https://github.com/jimc66/beads-ui/releases/download/v0.12.6-fork.1/beads-ui-0.12.6.tgz
 > ```
 >
 > See [Releases](https://github.com/jimc66/beads-ui/releases) for the latest
