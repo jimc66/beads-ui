@@ -3,14 +3,6 @@ import { debug } from './logging.js';
 
 const log = debug('list-adapters');
 
-// Upper bound on rows requested from `bd list`/`bd ready` for list views.
-// bd applies a small default limit (~50) when none is given, which silently
-// truncates these views on any non-trivial database. We request a high
-// explicit cap so the UI shows the full working set; bd returns fewer rows
-// when the result is smaller. Defined once so every list view shares the same
-// ceiling and it can be tuned in a single place.
-const LIST_LIMIT = 1000;
-
 /**
  * Build concrete `bd` CLI args for a subscription type + params.
  * Always includes `--json` for parseable output.
@@ -26,14 +18,8 @@ export function mapSubscriptionToBdArgs(spec) {
       // "Any" status view (which subscribes to all-issues and filters client
       // side) could never show closed issues. `--all` includes closed issues
       // so the client has the full set to filter.
-      return [
-        'list',
-        '--json',
-        '--tree=false',
-        '--all',
-        '--limit',
-        String(LIST_LIMIT)
-      ];
+      // `--limit 0` = unlimited. Without it, `bd list` caps at its default 50.
+      return ['list', '--json', '--tree=false', '--all', '--limit', '0'];
     }
     case 'epics': {
       return ['epic', 'status', '--json'];
@@ -41,10 +27,26 @@ export function mapSubscriptionToBdArgs(spec) {
     case 'blocked-issues': {
       return ['blocked', '--json'];
     }
+    case 'status-blocked-issues': {
+      // `bd blocked` reports only dependency-blocked issues (whose own status
+      // is `open`), so issues whose stored status is `blocked` need their own
+      // query. The Board's Blocked lane is the union of both.
+      // `--limit 0` = unlimited. Without it, `bd list` caps at its default 50.
+      return [
+        'list',
+        '--json',
+        '--tree=false',
+        '--status',
+        'blocked',
+        '--limit',
+        '0'
+      ];
+    }
     case 'ready-issues': {
-      return ['ready', '--limit', String(LIST_LIMIT), '--json'];
+      return ['ready', '--limit', '1000', '--json'];
     }
     case 'in-progress-issues': {
+      // `--limit 0` = unlimited. Without it, `bd list` caps at its default 50.
       return [
         'list',
         '--json',
@@ -52,7 +54,7 @@ export function mapSubscriptionToBdArgs(spec) {
         '--status',
         'in_progress',
         '--limit',
-        String(LIST_LIMIT)
+        '0'
       ];
     }
     case 'closed-issues': {
@@ -63,7 +65,7 @@ export function mapSubscriptionToBdArgs(spec) {
         '--status',
         'closed',
         '--limit',
-        String(LIST_LIMIT)
+        '1000'
       ];
     }
     case 'issue-detail': {
@@ -141,7 +143,7 @@ export function normalizeIssueList(value) {
  * Errors do not throw; they are surfaced as a structured object.
  *
  * @param {{ type: string, params?: Record<string, string | number | boolean> }} spec
- * @param {{ cwd?: string }} [options] - Optional working directory for bd command
+ * @param {{ cwd?: string, priority?: 'interactive' | 'background' }} [options] - Optional bd command settings
  * @returns {Promise<FetchListResultSuccess | FetchListResultFailure>}
  */
 export async function fetchListForSubscription(spec, options = {}) {
@@ -157,7 +159,10 @@ export async function fetchListForSubscription(spec, options = {}) {
   }
 
   try {
-    const res = await runBdJson(args, { cwd: options.cwd });
+    const res = await runBdJson(args, {
+      cwd: options.cwd,
+      priority: options.priority
+    });
     if (!res || res.code !== 0 || !('stdoutJson' in res)) {
       log(
         'bd failed for %o (args=%o) code=%s stderr=%s',

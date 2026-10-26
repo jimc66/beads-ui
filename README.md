@@ -1,10 +1,11 @@
 > **Fork notice.** This is a fork of
-> [mantoni/beads-ui](https://github.com/mantoni/beads-ui) with fixes ahead of the
-> current upstream release: `bd comments add` (so
-> `--author` is accepted), list-view limits, "Status: Any" including closed
-> issues, including dependents in the detail view, a clear error when the port
-> is already in use, a wider ID column so dotted child ids aren't clipped in
-> the Issues/Epics tables, and a jsdom test fix. Tested with bd 1.0.5.
+> [mantoni/beads-ui](https://github.com/mantoni/beads-ui), synced with upstream
+> v0.12.6. Upstream has since adopted this fork's `bd comments add` (`--author`)
+> fix, the detail view's dependents, and the list-view limits, so only these
+> changes remain ahead of it: "Status: Any" includes closed issues
+> (`bd list --all`), a clear error when the port is already in use instead of a
+> silent exit, a wider ID column so dotted child ids aren't clipped in the
+> Issues/Epics tables, and a jsdom localStorage test fix. Tested with bd 1.0.5.
 >
 > **Install (no clone required):**
 >
