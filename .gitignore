@@ -8,3 +8,7 @@ app/main.bundle.js.map
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Playwright browser-test output
+/test-results/
+/playwright-report/

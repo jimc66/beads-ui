@@ -23,6 +23,7 @@
     "build": "node scripts/build-frontend.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "tsc": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint --ext .js .",
     "prettier:write": "prettier --write .",
@@ -43,6 +44,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "1.64.1",
     "@studio/changes": "^3.0.0",
     "@trivago/prettier-plugin-sort-imports": "^6.0.0",
     "@types/debug": "^4.1.12",
