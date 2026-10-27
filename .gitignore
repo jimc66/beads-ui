@@ -13,3 +13,6 @@ app/main.bundle.js.map
 /test-results/
 /playwright-report/
 test/e2e/fixture/harness.bundle.js
+
+# Release tarballs built by `npm pack` (see RELEASING.md)
+/beads-ui-*.tgz

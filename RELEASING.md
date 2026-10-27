@@ -21,6 +21,32 @@ The frontend bundle (`app/main.bundle.js`) is gitignored and built on demand;
 So the published tarball is complete even though the repo does not commit the
 bundle.
 
+## The `latest` asset
+
+Each release carries the same tarball twice: once as `beads-ui-<version>.tgz`
+and once as `beads-ui-latest.tgz`. They are byte-identical copies.
+
+The duplicate exists so consumers have a URL that never changes:
+
+```
+https://github.com/<owner>/beads-ui/releases/latest/download/beads-ui-latest.tgz
+```
+
+GitHub's `/releases/latest/download/<asset>` redirects to that asset on the most
+recent non-prerelease release, but the asset **name** has to be spelled in the
+URL. The versioned name carries the upstream npm version, so it changes whenever
+the fork rebases onto a new mainline release — which would break any URL built
+from it. A fixed name is what makes the redirect durable.
+
+This is the registry `latest` dist-tag done by hand. A published npm package
+would get it for free; this fork is distributed as release tarballs instead (see
+above), and GitHub offers no "the only `.tgz` in the latest release" URL, so the
+stable name is supplied at upload time.
+
+The versioned asset stays because pinning is still worth doing deliberately — to
+reproduce a report against an exact build, or to hold a known-good version while
+a regression is sorted out.
+
 ## Cutting a release
 
 Prerequisites: `npm install` has been run in the repo (dev dependencies present,
@@ -33,10 +59,12 @@ needed for the esbuild build), and `gh` is authenticated.
    ```
 
 2. Build and pack. `npm pack` runs `prepack` (the build) automatically and
-   writes `beads-ui-<version>.tgz`:
+   writes `beads-ui-<version>.tgz`. Copy it to the fixed name as well, so the
+   release carries both (see [The `latest` asset](#the-latest-asset)):
 
    ```bash
    npm pack
+   cp -f beads-ui-*.tgz beads-ui-latest.tgz
    ```
 
 3. Sanity-check that the tarball contains the built UI before publishing it:
@@ -49,30 +77,42 @@ needed for the esbuild build), and `gh` is authenticated.
    fork build from upstream's tag (e.g. `v<version>-fork.N`):
 
    ```bash
-   gh release create v<version>-fork.N beads-ui-<version>.tgz \
+   gh release create v<version>-fork.N beads-ui-<version>.tgz beads-ui-latest.tgz \
      --title "v<version>-fork.N" \
      --notes "Fork build. Install without cloning:
 
-   npm install -g https://github.com/<owner>/beads-ui/releases/download/v<version>-fork.N/beads-ui-<version>.tgz
+   npm install -g https://github.com/<owner>/beads-ui/releases/latest/download/beads-ui-latest.tgz
 
    Fixes ahead of upstream <version>: <short list>."
    ```
 
-5. Verify the published URL installs a **real directory** (not a symlink):
+   Do **not** mark the release as a prerelease: `/releases/latest/` resolves to
+   the most recent non-prerelease release, so flagging one hides it from the
+   stable install URL.
+
+5. Verify the published URL installs a **real directory** (not a symlink), and
+   that the stable URL now resolves to this release:
 
    ```bash
-   npm install -g https://github.com/<owner>/beads-ui/releases/download/v<version>-fork.N/beads-ui-<version>.tgz
+   npm install -g https://github.com/<owner>/beads-ui/releases/latest/download/beads-ui-latest.tgz
    ls -ld "$(npm root -g)/beads-ui"        # expect drwx... (a directory), not lrwx... (a symlink)
    bdui --version
+
+   # Confirm the stable URL points at the tag just cut:
+   curl -sI -o /dev/null -w '%{redirect_url}\n' \
+     https://github.com/<owner>/beads-ui/releases/latest/download/beads-ui-latest.tgz
    ```
 
-6. Remove the local tarball so it is not committed:
+6. Remove the local tarballs so they are not committed:
 
    ```bash
-   rm beads-ui-*.tgz
+   rm -f beads-ui-*.tgz
    ```
 
-7. Update any consumer docs that pin the install URL to the new tag.
+7. No consumer-doc edit is needed for the URL: consumers install from the stable
+   `releases/latest/download/beads-ui-latest.tgz`, which this release's upload
+   repointed. Update consumer docs only when a release changes something they
+   describe (a new flag, a changed default, a `bd` version requirement).
 
 ## Conventions
 
