@@ -12,13 +12,16 @@
 > **Install (no clone required):**
 >
 > ```bash
-> npm install -g https://github.com/jimc66/beads-ui/releases/download/v0.12.6-fork.1/beads-ui-0.12.6.tgz
+> npm install -g https://github.com/jimc66/beads-ui/releases/latest/download/beads-ui-latest.tgz
 > ```
 >
-> See [Releases](https://github.com/jimc66/beads-ui/releases) for the latest
-> build URL, and [RELEASING.md](./RELEASING.md) for how builds are cut. Prefer
-> the registry package (`npm install -g beads-ui`) if it already has the fixes
-> you need. The upstream README follows.
+> That URL always resolves to the newest fork release, so the same command
+> upgrades an existing install; re-run it and restart `bdui`. To pin a specific
+> build instead, take its versioned tarball from
+> [Releases](https://github.com/jimc66/beads-ui/releases). See
+> [RELEASING.md](./RELEASING.md) for how builds are cut. Prefer the registry
+> package (`npm install -g beads-ui`) if it already has the fixes you need. The
+> upstream README follows.
 
 ---
 
